@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>huashu-motion · 架构拆解</title>
+<style>
+  :root{
+    --ink:#12161F; --ink2:#2C3340; --gray:#6B7280; --gray2:#98A0AE;
+    --paper:#FAF9F6; --line:#E6E2D9; --white:#fff;
+    --amber:#C77B2B; --green:#2E7D5B; --blue:#2F6F9F; --rose:#C42A55; --purple:#6B4F9E;
+    --code:#1B2029;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Segoe UI",system-ui,sans-serif;
+    font-size:15px; line-height:1.78; -webkit-font-smoothing:antialiased;
+  }
+  code, .mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace}
+
+  .wrap{display:flex; max-width:1600px; margin:0 auto;}
+  aside{
+    width:250px; flex:0 0 250px; position:sticky; top:0; height:100vh;
+    padding:34px 20px; border-right:1px solid var(--line); background:var(--white); overflow-y:auto;
+  }
+  aside .brand{font-size:11.5px; font-weight:700; color:var(--gray2); letter-spacing:.16em; margin-bottom:8px}
+  aside h2{font-size:17px; margin:0 0 20px; line-height:1.45}
+  aside .meta{font-size:12px; color:var(--gray2); margin-bottom:24px; line-height:1.9; border-bottom:1px solid #F0EDE6; padding-bottom:18px}
+  aside .meta b{color:var(--ink2); font-weight:600}
+  aside nav a{
+    display:block; padding:6px 10px; margin:1px 0; border-radius:6px;
+    color:var(--ink2); text-decoration:none; font-size:13px;
+    border-left:2px solid transparent; transition:.15s;
+  }
+  aside nav a:hover{background:#F5F2EC}
+  aside nav a.on{background:#F1EEE7; border-left-color:var(--ink); font-weight:600}
+  aside nav .grp{font-size:10.5px; color:var(--gray2); letter-spacing:.12em; margin:16px 0 5px 10px; font-weight:700}
+
+  main{flex:1; min-width:0; padding:52px 56px 110px}
+  header.hero{margin-bottom:52px}
+  header.hero .kicker{font-size:12px; letter-spacing:.2em; color:var(--gray); font-weight:700; margin-bottom:14px}
+  header.hero h1{font-size:44px; line-height:1.2; margin:0 0 16px; letter-spacing:-.02em}
+  header.hero p.lead{font-size:17px; color:var(--ink2); max-width:760px; margin:0}
+  .facts{display:flex; gap:34px; flex-wrap:wrap; margin-top:28px; padding-top:24px; border-top:1px solid var(--line)}
+  .fact .k{font-size:11px; letter-spacing:.14em; color:var(--gray2); font-weight:700}
+  .fact .v{font-size:20px; font-weight:700; margin-top:2px}
+  .fact .s{font-size:12px; color:var(--gray)}
+
+  h2.sec{font-size:27px; margin:0 0 6px; letter-spacing:-.01em}
+  h2.sec .num{color:var(--gray2); font-weight:400; margin-right:10px; font-variant-numeric:tabular-nums}
+  p.secdesc{color:var(--gray); margin:0 0 26px; font-size:14.5px; max-width:840px}
+
+  .fig{background:var(--white); border:1px solid var(--line); border-radius:14px; padding:8px; margin:0 0 14px; overflow-x:auto}
+  .fig svg{display:block; width:100%; height:auto; min-width:880px}
+  .cap{font-size:12.5px; color:var(--gray); margin:0 0 34px; padding-left:4px}
+  .cap b{color:var(--ink2); font-weight:600}
+
+  .cards{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-bottom:34px}
+  @media(max-width:1150px){ .cards{grid-template-columns:1fr} }
+  .card{background:var(--white); border:1px solid var(--line); border-radius:12px; padding:20px 22px}
+  .card .n{font-size:11px; font-weight:700; letter-spacing:.14em; color:var(--gray2); margin-bottom:8px}
+  .card h4{margin:0 0 8px; font-size:16.5px}
+  .card p{margin:0; font-size:13.8px; color:var(--ink2)}
+  .card p + p{margin-top:8px}
+  .card .quote{
+    margin-top:12px; padding:10px 14px; background:#F8F6F1; border-left:3px solid var(--line);
+    border-radius:0 6px 6px 0; font-size:13px; color:var(--ink2); font-family:"SFMono-Regular",Consolas,monospace;
+  }
+
+  table{width:100%; border-collapse:collapse; background:var(--white); border:1px solid var(--line);
+        border-radius:10px; overflow:hidden; font-size:13.6px; margin-bottom:34px}
+  th{text-align:left; padding:12px 15px; background:#F6F3EC; font-size:11.5px; letter-spacing:.08em;
+     color:var(--gray); font-weight:700; border-bottom:1px solid var(--line)}
+  td{padding:12px 15px; border-bottom:1px solid #F1EEE7; vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  td code{background:#F4F1EA; padding:1px 6px; border-radius:4px; font-size:12.5px; color:var(--ink)}
+  .pill{display:inline-block; padding:2px 9px; border-radius:20px; font-size:11.5px; font-weight:700; white-space:nowrap}
+  .pill.ok{background:#E6F4EC; color:#1F6B45}
+  .pill.warn{background:#FFF3DF; color:#8A5A0F}
+  .pill.no{background:#FBE7EC; color:#A81F47}
+
+  .note{background:var(--white); border:1px solid var(--line); border-left:4px solid var(--ink);
+        border-radius:10px; padding:20px 24px; margin:0 0 30px}
+  .note .t{font-size:11px; letter-spacing:.14em; color:var(--gray); font-weight:700; margin-bottom:8px}
+  .note p{margin:0; font-size:14.5px; color:var(--ink2)}
+  .note p + p{margin-top:8px}
+
+  hr.sep{border:0; border-top:1px solid var(--line); margin:56px 0}
+  footer{margin-top:64px; padding-top:24px; border-top:1px solid var(--line); color:var(--gray2); font-size:12.5px; line-height:1.9}
+
+  @media(max-width:1240px){
+    aside{display:none}
+    main{padding:34px 26px 80px}
+    .cards{grid-template-columns:1fr}
+    header.hero h1{font-size:34px}
+    .facts{gap:22px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<aside>
+  <div class="brand">ARCHITECTURE</div>
+  <h2>huashu-motion<br>架构拆解</h2>
+  <div class="meta">
+    v0.3.1 · MIT<br>
+    <b>10,600</b> 行代码<br>
+    <b>2,033</b> 行方法论<br>
+    拆解于 2026-11-01
+  </div>
+  <nav>
+    <div class="grp">全貌</div>
+    <a href="#stack">四层栈</a>
+    <a href="#idea">四个核心决策</a>
+    <div class="grp">机制</div>
+    <a href="#render">渲染管线</a>
+    <a href="#capture">一条 capture 路径</a>
+    <a href="#sound">配乐合成</a>
+    <a href="#clip">片段引擎</a>
+    <div class="grp">工程</div>
+    <a href="#cli">CLI 模块分工</a>
+    <a href="#check">双层检查</a>
+    <a href="#inbox">评论协议</a>
+    <div class="grp">判断</div>
+    <a href="#limits">能力边界</a>
+    <a href="#learn">可借鉴的三点</a>
+  </nav>
+</aside>
+
+<main>
+
+<header class="hero">
+  <div class="kicker">CODE ARCHITECTURE REVIEW</div>
+  <h1>把浏览器<br>当作渲染器</h1>
+  <p class="lead">画面是 HTML + GSAP，音轨是纯 JS 现场合成的 DSP。没有私有格式，不调生成模型，不联网要音乐——整个框架建立在「用户已经装好的那个 Chrome」上。</p>
+  <div class="facts">
+    <div class="fact"><div class="k">代码总量</div><div class="v">10,600 行</div><div class="s">CLI 7,058 · 引擎 1,300 · clip 1,700</div></div>
+    <div class="fact"><div class="k">CLI 模块</div><div class="v">32 个</div><div class="s">入口文件只有 397 行</div></div>
+    <div class="fact"><div class="k">资产库</div><div class="v">12 模板 / 20 语言</div><div class="s">8 个 grammar</div></div>
+    <div class="fact"><div class="k">外部依赖</div><div class="v">0</div><div class="s">仅 Node 22 / FFmpeg / Chrome</div></div>
+  </div>
+</header>
+
+<!-- ============ STACK ============ -->
+<section id="stack">
+  <h2 class="sec"><span class="num">01</span>四层栈</h2>
+  <p class="secdesc">上层是给 agent 读的「大脑」，下层是注入页面里跑的「引擎」。中间靠一个纯分发器连接。</p>
+
+  <div class="fig">
+  <svg viewBox="0 0 1100 640" font-family="'PingFang SC','Microsoft YaHei',sans-serif">
+    <rect width="1100" height="640" fill="#FFFFFF"/>
+
+    <!-- layer 1 -->
+    <rect x="50" y="34" width="1000" height="104" rx="10" fill="#FDF6EC" stroke="#EBD9BC"/>
+    <rect x="50" y="34" width="6" height="104" rx="3" fill="#C77B2B"/>
+    <text x="80" y="72" font-size="19" font-weight="700" fill="#A9631C">skills/huashu-motion/</text>
+    <text x="80" y="96" font-size="13" fill="#6B5A3E">给 agent 读的方法论：SKILL.md + 13 篇 references</text>
+    <text x="80" y="118" font-size="12" fill="#9A8663">20 种运动语言 · 12 个模板说明 · 示例 ABC 乐谱</text>
+    <rect x="880" y="56" width="146" height="26" rx="13" fill="#FFF4E3" stroke="#EBD9BC"/>
+    <text x="953" y="74" font-size="11.5" fill="#A9631C" text-anchor="middle" font-weight="700">Markdown · 无代码</text>
+
+    <!-- arrow -->
+    <path d="M550 138 L550 166" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a1)"/>
+
+    <!-- layer 2 -->
+    <rect x="50" y="172" width="1000" height="112" rx="10" fill="#F1F7FB" stroke="#C7DDEB"/>
+    <rect x="50" y="172" width="6" height="112" rx="3" fill="#2F6F9F"/>
+    <text x="80" y="210" font-size="19" font-weight="700" fill="#255C82">cli/　7,058 行 · 32 个模块</text>
+    <text x="80" y="234" font-size="13" fill="#4A6076">om.js 只有 397 行，是纯分发器：每条命令一行，转发到 lib/&lt;模块&gt;</text>
+    <text x="80" y="258" font-size="12" fill="#7A8C9C">render · sound · check · qa · grab · voice · inbox · studio</text>
+    <rect x="880" y="196" width="146" height="26" rx="13" fill="#E9F3FA" stroke="#C7DDEB"/>
+    <text x="953" y="214" font-size="11.5" fill="#255C82" text-anchor="middle" font-weight="700">Node.js · ES Modules</text>
+
+    <!-- arrow -->
+    <path d="M550 284 L550 312" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a1)"/>
+
+    <!-- layer 3 -->
+    <rect x="50" y="318" width="1000" height="130" rx="10" fill="#FDF2F5" stroke="#EFC7D3"/>
+    <rect x="50" y="318" width="6" height="130" rx="3" fill="#C42A55"/>
+    <text x="80" y="356" font-size="19" font-weight="700" fill="#A81F47">runtime/　注入页面的引擎</text>
+    <text x="80" y="380" font-size="13" fill="#7A4A5A">agent 看不到它 —— 它在页面脚本执行前被注入，和合成一起跑</text>
+    <g font-size="12.5" fill="#6B4050">
+      <text x="80" y="408">om-engine.js 397 行 —— 渲染期：seek(t) / duration() / 截帧握手</text>
+      <text x="80" y="430">om.js 369 行 —— 创作期：OM.sfx / OM.music / OM.cue / OM.beat</text>
+    </g>
+    <rect x="880" y="342" width="146" height="26" rx="13" fill="#FBE7EC" stroke="#EFC7D3"/>
+    <text x="953" y="360" font-size="11.5" fill="#A81F47" text-anchor="middle" font-weight="700">页面内 JS</text>
+
+    <!-- side: clip -->
+    <rect x="80" y="460" width="470" height="76" rx="9" fill="#FFFFFF" stroke="#EFC7D3" stroke-dasharray="4 3"/>
+    <text x="100" y="488" font-size="14" font-weight="700" fill="#A81F47">clip/　1,700 行</text>
+    <text x="100" y="510" font-size="12.5" fill="#6B4050">参数化片段引擎：JSON spec + 8 个 grammar</text>
+    <text x="100" y="528" font-size="11.5" fill="#9A7480">手写 GSAP 之外的第二套动画系统</text>
+
+    <!-- side: studio -->
+    <rect x="570" y="460" width="460" height="76" rx="9" fill="#FFFFFF" stroke="#D6CBE8" stroke-dasharray="4 3"/>
+    <text x="590" y="488" font-size="14" font-weight="700" fill="#57407F">studio/　785 行</text>
+    <text x="590" y="510" font-size="12.5" fill="#4F4470">浏览器编辑器：实时预览 · 直接改值 · 画面留评论</text>
+    <text x="590" y="528" font-size="11.5" fill="#8A80A0">写回同一份 index.html</text>
+
+    <!-- chrome -->
+    <rect x="50" y="562" width="1000" height="56" rx="10" fill="#1B2029"/>
+    <text x="80" y="596" font-size="15" font-weight="700" fill="#FFFFFF">用户自己电脑上已经装好的 Chrome</text>
+    <text x="560" y="596" font-size="12.5" fill="#98A0AE">不下载浏览器 · 直接说 CDP 协议</text>
+    <text x="1014" y="596" font-size="12.5" fill="#6B7280" text-anchor="end">渲染 / 截帧 / 预览 共用</text>
+
+    <defs>
+      <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#C9C2B2"/>
+      </marker>
+    </defs>
+  </svg>
+  </div>
+  <p class="cap"><b>读法：</b>上面两层是「怎么写」，下面一层是「怎么渲」。中间那个 397 行的分发器是唯一把它们串起来的东西。</p>
+</section>
+
+<hr class="sep">
+
+<!-- ============ IDEAS ============ -->
+<section id="idea">
+  <h2 class="sec"><span class="num">02</span>四个核心设计决策</h2>
+  <p class="secdesc">这四个决定解释了为什么它能做到「片子就是一个网页」，也解释了它的全部局限。</p>
+
+  <div class="cards">
+    <div class="card">
+      <div class="n">DECISION 01</div>
+      <h4>工程就是一张 HTML，没有私有格式</h4>
+      <p>三种标注让一张普通网页变成可编辑的片子：变量（可改的值）、<code>data-om-id</code>（可被指到的元素）、<code>scene:id</code>（分镜）。</p>
+      <p>好处是带走就能用，改道具不需要专有编辑器；代价是没有类型检查，全靠 <code>om check</code> 兜底。</p>
+      <div class="quote">the only source of truth</div>
+    </div>
+    <div class="card">
+      <div class="n">DECISION 02</div>
+      <h4>不下载浏览器，直接说 CDP</h4>
+      <p>在固定路径列表里找用户已装的 Chrome / Edge / Brave，找到后用 188 行的 <code>cdp.js</code> 直接对话。</p>
+      <p>不引入 Puppeteer，所以没有版本漂移；也意味着渲染完全依赖用户机器上的那个浏览器。</p>
+      <div class="quote">nothing is downloaded</div>
+    </div>
+    <div class="card">
+      <div class="n">DECISION 03</div>
+      <h4>页面引擎与创作 API 分离</h4>
+      <p>引擎只认时间（<code>seek(t)</code> / <code>duration()</code>），不关心你用什么方式画；创作 API 只提供积木（音效、配乐、拍点）。</p>
+      <p>这个分层让「按帧渲染」和「怎么写动画」彻底解耦，两套动画系统（手写 GSAP 与 clip grammar）才能并存。</p>
+    </div>
+    <div class="card">
+      <div class="n">DECISION 04</div>
+      <h4>音轨从零合成，无采样无网络</h4>
+      <p>约 1,800 行 DSP：乐器自己写，鼓组 8 套，音效 23 种。headless 浏览器加载页面读取场景标签和击打点，再在 Node 里合成整条音轨。</p>
+      <p>同一个源永远得到同一个文件——这是它能做「确定性交付」的关键。</p>
+      <div class="quote">no samples, no network, no dependencies</div>
+    </div>
+  </div>
+</section>
+
+<hr class="sep">
+
+<!-- ============ RENDER ============ -->
+<section id="render">
+  <h2 class="sec"><span class="num">03</span>渲染管线</h2>
+  <p class="secdesc">一次 <code>om render</code> 背后发生了什么。要点是：一切并行，且任何异常都终止整次渲染。</p>
+
+  <div class="fig">
+  <svg viewBox="0 0 1100 520" font-family="'PingFang SC','Microsoft YaHei',sans-serif">
+    <rect width="1100" height="520" fill="#FFFFFF"/>
+
+    <!-- input -->
+    <rect x="40" y="50" width="170" height="86" rx="9" fill="#FDF9F2" stroke="#EBD9BC"/>
+    <text x="125" y="80" font-size="14" font-weight="700" fill="#A9631C" text-anchor="middle">index.html</text>
+    <text x="125" y="102" font-size="11.5" fill="#8A7A5A" text-anchor="middle">唯一真相源</text>
+    <text x="125" y="120" font-size="11.5" fill="#8A7A5A" text-anchor="middle">HTML + GSAP</text>
+
+    <path d="M210 93 L258 93" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a2)"/>
+
+    <!-- stage: check -->
+    <rect x="266" y="50" width="150" height="86" rx="9" fill="#F1F7FB" stroke="#C7DDEB"/>
+    <text x="341" y="80" font-size="13.5" font-weight="700" fill="#255C82" text-anchor="middle">om check</text>
+    <text x="341" y="102" font-size="11.5" fill="#5A7A92" text-anchor="middle">渲前拦截</text>
+    <text x="341" y="120" font-size="11.5" fill="#5A7A92" text-anchor="middle">错误即终止</text>
+
+    <path d="M416 93 L464 93" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a2)"/>
+
+    <!-- stage: browsers -->
+    <rect x="472" y="30" width="268" height="126" rx="9" fill="#FDF2F5" stroke="#EFC7D3"/>
+    <text x="606" y="56" font-size="13.5" font-weight="700" fill="#A81F47" text-anchor="middle">N 个 Chrome 并行</text>
+    <g font-size="11" fill="#7A4A5A" text-anchor="middle">
+      <rect x="492" y="70" width="56" height="30" rx="5" fill="#fff" stroke="#EFC7D3"/>
+      <text x="520" y="89">frame</text>
+      <rect x="556" y="70" width="56" height="30" rx="5" fill="#fff" stroke="#EFC7D3"/>
+      <text x="584" y="89">frame</text>
+      <rect x="620" y="70" width="56" height="30" rx="5" fill="#fff" stroke="#EFC7D3"/>
+      <text x="648" y="89">frame</text>
+      <rect x="684" y="70" width="44" height="30" rx="5" fill="#fff" stroke="#EFC7D3"/>
+      <text x="706" y="89">···</text>
+    </g>
+    <text x="606" y="126" font-size="11.5" fill="#9A7480" text-anchor="middle">每个从任意绝对帧开始，按小批派活</text>
+    <text x="606" y="144" font-size="11" fill="#B08A96" text-anchor="middle">默认 ≤ 8 个（实测 14 核 Mac 的吞吐拐点）</text>
+
+    <path d="M740 93 L788 93" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a2)"/>
+
+    <!-- stage: ffmpeg -->
+    <rect x="796" y="50" width="150" height="86" rx="9" fill="#F3F7F4" stroke="#C9E2D6"/>
+    <text x="871" y="80" font-size="13.5" font-weight="700" fill="#256B4E" text-anchor="middle">FFmpeg 编码</text>
+    <text x="871" y="102" font-size="11.5" fill="#4A7A62" text-anchor="middle">有序帧流式写入</text>
+    <text x="871" y="120" font-size="11.5" fill="#4A7A62" text-anchor="middle">音轨同时编码</text>
+
+    <path d="M946 93 L994 93" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a2)"/>
+
+    <!-- output -->
+    <rect x="1002" y="50" width="66" height="86" rx="9" fill="#1B2029"/>
+    <text x="1035" y="90" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">MP4</text>
+    <text x="1035" y="110" font-size="10.5" fill="#8A93A0" text-anchor="middle">不覆盖</text>
+
+    <!-- parallel track: sound -->
+    <rect x="266" y="188" width="150" height="80" rx="9" fill="#F5F2FA" stroke="#D6CBE8"/>
+    <text x="341" y="216" font-size="13.5" font-weight="700" fill="#57407F" text-anchor="middle">om sound</text>
+    <text x="341" y="238" font-size="11.5" fill="#6B5F8A" text-anchor="middle">读页面声明</text>
+    <text x="341" y="256" font-size="11.5" fill="#6B5F8A" text-anchor="middle">合成整条音轨</text>
+    <path d="M416 228 L464 228" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a2)"/>
+    <path d="M606 228 L606 176" stroke="#C42A55" stroke-width="1.6" stroke-dasharray="4 3"/>
+    <text x="616" y="212" font-size="11" fill="#A81F47">与画面并行</text>
+
+    <!-- notes -->
+    <rect x="40" y="308" width="1028" height="176" rx="10" fill="#FAF8F3" stroke="#E6E2D9"/>
+    <text x="64" y="338" font-size="12" font-weight="700" fill="#6B7280" letter-spacing="1">这条管线的三个硬规则</text>
+    <g font-size="13" fill="#3A4150">
+      <text x="64" y="366">① 任何页面报错、缺帧或超时 → 整次渲染以非零退出。不会「渲到一半就交付」。</text>
+      <text x="64" y="394">② 音轨先于画面编码，两路并行；配乐没改就直接复用缓存。</text>
+      <text x="64" y="422">③ 输出文件名先被原子占位（空文件 + wx 标志），两个渲染同时启动也不会撞名。</text>
+    </g>
+    <text x="64" y="456" font-size="12" fill="#8A8F9B">运动模糊（--blur）是把每帧渲成 N 个子帧再平均，模拟胶片开合的快门——所以快动作不闪。</text>
+
+    <defs>
+      <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#C9C2B2"/>
+      </marker>
+    </defs>
+  </svg>
+  </div>
+  <p class="cap"><b>关键：</b>画面与音轨是两条并行的路，在 FFmpeg 处汇合。音轨不是后配的，是渲染流程的一部分。</p>
+</section>
+
+<hr class="sep">
+
+<!-- ============ CAPTURE ============ -->
+<section id="capture">
+  <h2 class="sec"><span class="num">04</span>一条 capture 路径</h2>
+  <p class="secdesc">这是整个框架最重要的架构约束——它解决了所有视频工具的通病：预览和成片不一致。</p>
+
+  <div class="fig">
+  <svg viewBox="0 0 1100 400" font-family="'PingFang SC','Microsoft YaHei',sans-serif">
+    <rect width="1100" height="400" fill="#FFFFFF"/>
+
+    <!-- three consumers -->
+    <rect x="40" y="50" width="190" height="60" rx="9" fill="#FDF9F2" stroke="#EBD9BC"/>
+    <text x="135" y="78" font-size="14" font-weight="700" fill="#A9631C" text-anchor="middle">om render</text>
+    <text x="135" y="96" font-size="11.5" fill="#8A7A5A" text-anchor="middle">导出成片</text>
+
+    <rect x="40" y="140" width="190" height="60" rx="9" fill="#FDF9F2" stroke="#EBD9BC"/>
+    <text x="135" y="168" font-size="14" font-weight="700" fill="#A9631C" text-anchor="middle">om still / look</text>
+    <text x="135" y="186" font-size="11.5" fill="#8A7A5A" text-anchor="middle">静帧与放大</text>
+
+    <rect x="40" y="230" width="190" height="60" rx="9" fill="#F5F2FA" stroke="#D6CBE8"/>
+    <text x="135" y="258" font-size="14" font-weight="700" fill="#57407F" text-anchor="middle">om studio</text>
+    <text x="135" y="276" font-size="11.5" fill="#6B5F8A" text-anchor="middle">实时预览</text>
+
+    <!-- converge -->
+    <path d="M230 80 L330 160" stroke="#C9C2B2" stroke-width="1.8" fill="none"/>
+    <path d="M230 170 L330 170" stroke="#C9C2B2" stroke-width="1.8"/>
+    <path d="M230 260 L330 180" stroke="#C9C2B2" stroke-width="1.8" fill="none"/>
+
+    <rect x="336" y="128" width="200" height="84" rx="10" fill="#1B2029"/>
+    <text x="436" y="160" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">capture.js</text>
+    <text x="436" y="182" font-size="11.5" fill="#98A0AE" text-anchor="middle">129 行 · 唯一的页面驱动</text>
+    <text x="436" y="200" font-size="11.5" fill="#6B7280" text-anchor="middle">seek → 等 settled → 拍图</text>
+
+    <path d="M536 170 L586 170" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a3)"/>
+
+    <!-- engine -->
+    <rect x="594" y="118" width="220" height="104" rx="10" fill="#FDF2F5" stroke="#EFC7D3"/>
+    <text x="704" y="148" font-size="14" font-weight="700" fill="#A81F47" text-anchor="middle">om-engine.js</text>
+    <text x="704" y="170" font-size="11.5" fill="#7A4A5A" text-anchor="middle">Page.addScriptToEvaluateOnNewDocument</text>
+    <text x="704" y="190" font-size="11.5" fill="#7A4A5A" text-anchor="middle">在合成脚本之前注入</text>
+    <text x="704" y="210" font-size="11.5" fill="#9A7480" text-anchor="middle">__omEngine.seek(t)</text>
+
+    <path d="M814 170 L864 170" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a3)"/>
+
+    <rect x="872" y="128" width="188" height="84" rx="9" fill="#F1F7FB" stroke="#C7DDEB"/>
+    <text x="966" y="160" font-size="13.5" font-weight="700" fill="#255C82" text-anchor="middle">Chrome</text>
+    <text x="966" y="182" font-size="11.5" fill="#5A7A92" text-anchor="middle">CDP · 188 行协议层</text>
+    <text x="966" y="200" font-size="11.5" fill="#5A7A92" text-anchor="middle">不依赖 Puppeteer</text>
+
+    <!-- consequence -->
+    <rect x="40" y="300" width="1020" height="66" rx="10" fill="#F3F7F4" stroke="#C9E2D6"/>
+    <text x="64" y="328" font-size="13" font-weight="700" fill="#256B4E">结果：你在 studio 里看到的，就是渲染出来的那一帧。</text>
+    <text x="64" y="350" font-size="12.5" fill="#4A7A62">因为三条路径共用同一个 seek 和同一套等待逻辑，不存在「预览一套代码、渲染另一套代码」的漂移。</text>
+
+    <defs>
+      <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#C9C2B2"/>
+      </marker>
+    </defs>
+  </svg>
+  </div>
+  <p class="cap"><b>代价：</b>所有能力都锁在浏览器上——没有 headless GPU 渲染加速，也做不了浏览器画不出来的东西（比如真人）。</p>
+</section>
+
+<hr class="sep">
+
+<!-- ============ SOUND ============ -->
+<section id="sound">
+  <h2 class="sec"><span class="num">05</span>配乐合成</h2>
+  <p class="secdesc">这是全仓库工程量最大、也最独特的部分：不调用任何音乐 API，从零合成。</p>
+
+  <div class="fig">
+  <svg viewBox="0 0 1100 460" font-family="'PingFang SC','Microsoft YaHei',sans-serif">
+    <rect width="1100" height="460" fill="#FFFFFF"/>
+
+    <!-- input -->
+    <rect x="40" y="42" width="212" height="150" rx="10" fill="#FDF9F2" stroke="#EBD9BC"/>
+    <text x="146" y="70" font-size="13.5" font-weight="700" fill="#A9631C" text-anchor="middle">headless 浏览器读页面</text>
+    <g font-size="11.5" fill="#6B5A3E">
+      <text x="60" y="96">scene:xxx 标签 → 音乐段落</text>
+      <text x="60" y="118">OM.sfx 击打点 → 音效</text>
+      <text x="60" y="140">OM.music 选项 → 风格</text>
+      <text x="60" y="162">旁白词 → 自动避让</text>
+    </g>
+    <text x="146" y="184" font-size="11" fill="#9A8663" text-anchor="middle">不解析 AST，只看运行结果</text>
+
+    <path d="M252 117 L300 117" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a4)"/>
+
+    <!-- score.js -->
+    <rect x="308" y="42" width="230" height="150" rx="10" fill="#FDF2F5" stroke="#EFC7D3"/>
+    <text x="423" y="70" font-size="13.5" font-weight="700" fill="#A81F47" text-anchor="middle">score.js　679 行</text>
+    <g font-size="11.5" fill="#7A4A5A">
+      <text x="328" y="96">风格 = 乐器 + 16 步 pattern</text>
+      <text x="328" y="118">三层：pulse / harmony / drums</text>
+      <text x="328" y="140">技能门控：能量到阈值才进场</text>
+      <text x="328" y="162">drop 前先留一个 breath</text>
+    </g>
+    <text x="423" y="184" font-size="11" fill="#9A7480" text-anchor="middle">段落 / 落点 / 结尾都由页面决定</text>
+
+    <path d="M538 117 L586 117" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a4)"/>
+
+    <!-- dsp -->
+    <rect x="594" y="42" width="230" height="150" rx="10" fill="#F5F2FA" stroke="#D6CBE8"/>
+    <text x="709" y="70" font-size="13.5" font-weight="700" fill="#57407F" text-anchor="middle">dsp.js + fx.js</text>
+    <g font-size="11.5" fill="#6B5F8A">
+      <text x="614" y="96">乐器自己写：epiano / pad / strings</text>
+      <text x="614" y="118">鼓组 8 套：pop / 808 / lofi / chip</text>
+      <text x="614" y="140">混响、压缩、滤波、磁带停</text>
+      <text x="614" y="162">纯 Float32 运算，无外部库</text>
+    </g>
+    <text x="709" y="184" font-size="11" fill="#8A80A0" text-anchor="middle">同步率 48kHz</text>
+
+    <path d="M824 117 L872 117" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a4)"/>
+
+    <rect x="880" y="42" width="180" height="150" rx="10" fill="#1B2029"/>
+    <text x="970" y="74" font-size="13.5" font-weight="700" fill="#fff" text-anchor="middle">sound.wav</text>
+    <text x="970" y="100" font-size="11.5" fill="#98A0AE" text-anchor="middle">-14 LUFS</text>
+    <text x="970" y="122" font-size="11.5" fill="#98A0AE" text-anchor="middle">峰值 -1.5 dBFS</text>
+    <text x="970" y="152" font-size="11" fill="#6B7280" text-anchor="middle">同源同文件</text>
+    <text x="970" y="170" font-size="11" fill="#6B7280" text-anchor="middle">可确定性复现</text>
+
+    <!-- sfx row -->
+    <rect x="40" y="230" width="500" height="96" rx="10" fill="#FFFFFF" stroke="#E6E2D9"/>
+    <text x="62" y="256" font-size="12.5" font-weight="700" fill="#3A4150">23 种音效，全部程序生成</text>
+    <g font-size="11.5" fill="#6B7280">
+      <text x="62" y="280">pop · tick · click · whoosh · whip · thud · impact</text>
+      <text x="62" y="302">paper · stamp · ding · chime · glitch · subdrop · riser …</text>
+    </g>
+    <text x="62" y="320" font-size="11" fill="#9AA0AC">每个音效声明 lead 时间，让重音精确落在击打那一帧</text>
+
+    <!-- music worlds -->
+    <rect x="560" y="230" width="500" height="96" rx="10" fill="#FFFFFF" stroke="#E6E2D9"/>
+    <text x="582" y="256" font-size="12.5" font-weight="700" fill="#3A4150">16 个音乐世界</text>
+    <g font-size="11.5" fill="#6B7280">
+      <text x="582" y="280">pulse minimalism · UK garage · techno · drum&amp;bass</text>
+      <text x="582" y="302">funk · lo-fi · trap · synthwave · cinematic · 国风 …</text>
+    </g>
+    <text x="582" y="320" font-size="11" fill="#9AA0AC">按产品性格选，不让用户选</text>
+
+    <!-- warning -->
+    <rect x="40" y="360" width="1020" height="66" rx="10" fill="#FFF8ED" stroke="#E8C27E"/>
+    <text x="64" y="388" font-size="13" font-weight="700" fill="#8A5A0F">它的自我批评：om sound 会自己报能量太平</text>
+    <text x="64" y="410" font-size="12.5" fill="#7A5A22">实测我这支片五个段落的 RMS 只差 3dB —— 它能保证卡点精确到 0ms，但做不出真正的情绪起伏。这是程序化作曲的天花板。</text>
+
+    <defs>
+      <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#C9C2B2"/>
+      </marker>
+    </defs>
+  </svg>
+  </div>
+  <p class="cap"><b>设计哲学：</b>音乐不是「配」上去的，是从片子的结构里长出来的——段落来自场景标签，落点来自切点。</p>
+</section>
+
+<hr class="sep">
+
+<!-- ============ CLIP ============ -->
+<section id="clip">
+  <h2 class="sec"><span class="num">06</span>两套并存的动画系统</h2>
+  <p class="secdesc">同一个框架里，手写 GSAP 和参数化 grammar 并行存在。它们解决的是两类不同的问题。</p>
+
+  <div class="cards">
+    <div class="card">
+      <div class="n">PATH A · 手写</div>
+      <h4>GSAP timeline</h4>
+      <p>作者直接写 <code>gsap.timeline()</code>，每个元素怎么动、什么时候动，全部显式控制。</p>
+      <p><b>适合：</b>精品单条、需要独特表达的片子。<b>代价：</b>每条都要重写。</p>
+    </div>
+    <div class="card">
+      <div class="n">PATH B · 参数化</div>
+      <h4>clip grammar</h4>
+      <p>给一个 JSON spec（grammar 名 + 数据 + cues），grammar 自己算每一帧画什么。</p>
+      <p><b>适合：</b>批量化、agent 生成、数据驱动的解说。<b>代价：</b>表达受限于 grammar 的设计。</p>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th style="width:16%">Grammar</th><th style="width:34%">画什么</th><th style="width:50%">适合的场景</th></tr></thead>
+    <tbody>
+      <tr><td><code>t1_3b1b</code></td><td>数学动画</td><td>公式推导、几何证明、函数变换</td></tr>
+      <tr><td><code>t2_keynote_ui</code></td><td>界面演示</td><td>产品功能、APP 操作流程</td></tr>
+      <tr><td><code>t3_finance_chart</code></td><td>图表解说</td><td>数据报告、增长曲线、对比</td></tr>
+      <tr><td><code>y1_kurzgesagt</code></td><td>科普插画</td><td>概念解释、科普视频</td></tr>
+      <tr><td><code>y2_vox</code></td><td>拼贴纪实</td><td>新闻式叙事、档案素材</td></tr>
+      <tr><td><code>y3_whiteboard</code></td><td>白板手绘</td><td>教学、逐步讲解</td></tr>
+      <tr><td><code>y4_storytime</code></td><td>故事叙述</td><td>情节推进、人物讲述</td></tr>
+      <tr><td><code>y5_kinetic_type</code></td><td>动态文字</td><td>清单、章节卡、金句、大数字</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<hr class="sep">
+
+<!-- ============ CLI ============ -->
+<section id="cli">
+  <h2 class="sec"><span class="num">07</span>CLI 的 32 个模块怎么分工</h2>
+  <p class="secdesc">入口 <code>om.js</code> 只有 397 行——它是纯分发器，每条命令一行转发。真正的能力全在 <code>lib/</code>。</p>
+
+  <table>
+    <thead><tr><th style="width:14%">类别</th><th style="width:44%">模块</th><th style="width:42%">职责</th></tr></thead>
+    <tbody>
+      <tr><td><b>产出</b></td><td><code>render.js</code> <code>render-om.js</code> <code>frames.js</code> <code>export.js</code> <code>share.js</code></td><td>导出 mp4 / mov / webm / gif；分享包</td></tr>
+      <tr><td><b>页面</b></td><td><code>capture.js</code> <code>cdp.js</code> <code>browser.js</code> <code>still.js</code></td><td>驱动 Chrome、找浏览器、静帧</td></tr>
+      <tr><td><b>音乐</b></td><td><code>score.js</code> <code>sound.js</code> <code>dsp.js</code> <code>fx.js</code></td><td>作曲、合成、信号处理、混音</td></tr>
+      <tr><td><b>乐谱</b></td><td><code>composer.js</code> <code>composed.js</code> <code>beats.js</code></td><td>ABC 谱解析、拍点分析</td></tr>
+      <tr><td><b>人声</b></td><td><code>voice.js</code>（710 行，最大单文件）<code>kokoro.py</code></td><td>口播、词级对齐、字幕</td></tr>
+      <tr><td><b>质检</b></td><td><code>check.js</code> <code>qa.js</code></td><td>渲前静态+采样、渲后视频分析</td></tr>
+      <tr><td><b>素材</b></td><td><code>grab.js</code> <code>fonts.js</code> <code>swatch.js</code></td><td>抓页面、字体、色板</td></tr>
+      <tr><td><b>工程</b></td><td><code>project.js</code> <code>inbox.js</code> <code>server.js</code></td><td>工程模型、评论收件箱、studio 服务</td></tr>
+      <tr><td><b>学习</b></td><td><code>learn.js</code></td><td>偏好记忆与复盘沉淀</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<hr class="sep">
+
+<!-- ============ CHECK ============ -->
+<section id="check">
+  <h2 class="sec"><span class="num">08</span>双层检查</h2>
+  <p class="secdesc"><code>check.js</code> 的设计值得单独说——它让「每次改完都检查」从口号变成可承受的成本。</p>
+
+  <div class="fig">
+  <svg viewBox="0 0 1100 420" font-family="'PingFang SC','Microsoft YaHei',sans-serif">
+    <rect width="1100" height="420" fill="#FFFFFF"/>
+
+    <!-- layer 1 -->
+    <rect x="40" y="36" width="1020" height="140" rx="10" fill="#F1F7FB" stroke="#C7DDEB"/>
+    <text x="64" y="66" font-size="14" font-weight="700" fill="#255C82">source 层 —— 不开浏览器，毫秒级</text>
+    <g font-size="12.5" fill="#4A6076">
+      <text x="64" y="94">· 结构：根目录只能有一个 composition，必须有 data-width / data-height</text>
+      <text x="64" y="118">· 脚本语法、变量声明、引用的文件是否存在</text>
+      <text x="64" y="142">· 「运动不是时间的函数」：动了 left / top / width 而不是 transform</text>
+      <text x="64" y="166">· 「上一帧影响下一帧」：某个 tween 的起始值来自另一个 tween</text>
+    </g>
+    <rect x="900" y="48" width="140" height="26" rx="13" fill="#E9F3FA" stroke="#C7DDEB"/>
+    <text x="970" y="66" font-size="11.5" fill="#255C82" text-anchor="middle" font-weight="700">拦掉约 80% 的错误</text>
+
+    <path d="M550 176 L550 204" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a5)"/>
+
+    <!-- layer 2 -->
+    <rect x="40" y="212" width="1020" height="120" rx="10" fill="#FDF2F5" stroke="#EFC7D3"/>
+    <text x="64" y="242" font-size="14" font-weight="700" fill="#A81F47">page 层 —— 开 Chrome 采样若干帧</text>
+    <g font-size="12.5" fill="#7A4A5A">
+      <text x="64" y="270">· 页面报错、时长记账、首尾帧是否空白</text>
+      <text x="64" y="294">· 文字被裁切 / 被遮挡 / 对比度不足（逐元素量实际像素）</text>
+      <text x="64" y="318">· 首帧是否只是一片纯色（海报位会显示这一帧）</text>
+    </g>
+    <rect x="900" y="224" width="140" height="26" rx="13" fill="#FBE7EC" stroke="#EFC7D3"/>
+    <text x="970" y="242" font-size="11.5" fill="#A81F47" text-anchor="middle" font-weight="700">才需要浏览器</text>
+
+    <!-- note -->
+    <rect x="40" y="352" width="1020" height="44" rx="8" fill="#FAF8F3" stroke="#E6E2D9"/>
+    <text x="64" y="380" font-size="12.5" fill="#6B7280">设计精髓：能静态判断的绝不开浏览器。这决定了「改一次查一次」的成本是否可以接受。</text>
+
+    <defs>
+      <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#C9C2B2"/>
+      </marker>
+    </defs>
+  </svg>
+  </div>
+  <p class="cap"><b>注意：</b>还有渲后的 <code>qa.js</code>——它解码成片，量单帧闪烁、死时间、硬切、运动曲线。<b>运动量低于 0.85 会直接判「像幻灯片」</b>，我实测被这条逼着改了六轮。</p>
+</section>
+
+<hr class="sep">
+
+<!-- ============ INBOX ============ -->
+<section id="inbox">
+  <h2 class="sec"><span class="num">09</span>评论协议</h2>
+  <p class="secdesc">「指着画面改」的底层是一个追加式 JSONL 日志。妙在它不绑定任何 agent。</p>
+
+  <div class="fig">
+  <svg viewBox="0 0 1100 400" font-family="'PingFang SC','Microsoft YaHei',sans-serif">
+    <rect width="1100" height="400" fill="#FFFFFF"/>
+
+    <!-- actors -->
+    <rect x="40" y="40" width="220" height="70" rx="9" fill="#F5F2FA" stroke="#D6CBE8"/>
+    <text x="150" y="68" font-size="13.5" font-weight="700" fill="#57407F" text-anchor="middle">用户（studio）</text>
+    <text x="150" y="90" font-size="11.5" fill="#6B5F8A" text-anchor="middle">按 C，点一下，写字</text>
+
+    <rect x="840" y="40" width="220" height="70" rx="9" fill="#F1F7FB" stroke="#C7DDEB"/>
+    <text x="950" y="68" font-size="13.5" font-weight="700" fill="#255C82" text-anchor="middle">任意 agent</text>
+    <text x="950" y="90" font-size="11.5" fill="#5A7A92" text-anchor="middle">任何能跑 shell 的东西</text>
+
+    <!-- the log -->
+    <rect x="380" y="30" width="340" height="90" rx="9" fill="#1B2029"/>
+    <text x="550" y="58" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">.om/inbox.jsonl</text>
+    <text x="550" y="80" font-size="11.5" fill="#98A0AE" text-anchor="middle">追加式事件日志</text>
+    <text x="550" y="100" font-size="11" fill="#6B7280" text-anchor="middle">当前状态 = 事件的折叠（fold）</text>
+
+    <path d="M260 75 L380 75" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a6)"/>
+    <path d="M840 75 L720 75" stroke="#C9C2B2" stroke-width="2" marker-end="url(#a6)"/>
+
+    <!-- event sequence -->
+    <g font-size="11.5">
+      <rect x="70" y="160" width="150" height="40" rx="6" fill="#FDF2F5" stroke="#EFC7D3"/>
+      <text x="145" y="185" fill="#A81F47" text-anchor="middle" font-weight="700">comment</text>
+      <text x="145" y="216" fill="#9A7480" text-anchor="middle">带时间点 · 元素 · 源码位置</text>
+
+      <rect x="250" y="160" width="130" height="40" rx="6" fill="#F1F7FB" stroke="#C7DDEB"/>
+      <text x="315" y="185" fill="#255C82" text-anchor="middle" font-weight="700">claim</text>
+      <text x="315" y="216" fill="#5A7A92" text-anchor="middle">agent 接单</text>
+
+      <rect x="410" y="160" width="130" height="40" rx="6" fill="#F3F7F4" stroke="#C9E2D6"/>
+      <text x="475" y="185" fill="#256B4E" text-anchor="middle" font-weight="700">done</text>
+      <text x="475" y="216" fill="#4A7A62" text-anchor="middle">回报改了什么</text>
+
+      <rect x="570" y="160" width="130" height="40" rx="6" fill="#FFF8ED" stroke="#E8C27E"/>
+      <text x="635" y="185" fill="#8A5A0F" text-anchor="middle" font-weight="700">reopen</text>
+      <text x="635" y="216" fill="#7A5A22" text-anchor="middle">不满意再打开</text>
+    </g>
+    <path d="M220 180 L250 180" stroke="#D5CFC2" stroke-width="1.6" marker-end="url(#a6)"/>
+    <path d="M380 180 L410 180" stroke="#D5CFC2" stroke-width="1.6" marker-end="url(#a6)"/>
+    <path d="M540 180 L570 180" stroke="#D5CFC2" stroke-width="1.6" marker-end="url(#a6)"/>
+
+    <!-- why it matters -->
+    <rect x="40" y="268" width="1020" height="100" rx="10" fill="#FAF8F3" stroke="#E6E2D9"/>
+    <text x="64" y="296" font-size="13" font-weight="700" fill="#3A4150">为什么这个设计好</text>
+    <g font-size="12.5" fill="#4B5361">
+      <text x="64" y="322">① 模型无关：`om inbox --wait` 阻塞等待，任何 agent 都能接活，不锁定生态。</text>
+      <text x="64" y="346">② 反馈精确：评论带着时间点、场景、点中的元素、在源码里的位置——不用 agent 自己找。</text>
+    </g>
+    <text x="64" y="366" font-size="11.5" fill="#8A8F9B">配套：project.js 每次写入都校验 token，防止 agent 和用户同时编辑时静默覆盖。</text>
+
+    <defs>
+      <marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#C9C2B2"/>
+      </marker>
+    </defs>
+  </svg>
+  </div>
+</section>
+
+<hr class="sep">
+
+<!-- ============ LIMITS ============ -->
+<section id="limits">
+  <h2 class="sec"><span class="num">10</span>能力边界</h2>
+  <p class="secdesc">这些不是猜测，是从代码和实测里确认的。</p>
+
+  <table>
+    <thead><tr><th style="width:22%">边界</th><th style="width:44%">证据</th><th style="width:34%">影响</th></tr></thead>
+    <tbody>
+      <tr><td><b>画面里不能有真人</b></td><td>全部路径是 HTML / Canvas / GSAP，唯一的「人」是 talking-head 模板里的口播素材</td><td><span class="pill no">真人出镜必须换框架</span></td></tr>
+      <tr><td><b>只在 macOS 实测</b></td><td>README 明写；Windows 分支写了但未验证</td><td><span class="pill warn">Windows 需自测</span></td></tr>
+      <tr><td><b>手写 ABC 谱容易错</b></td><td>score.js 会拉伸小节对齐；我实测两版都因小节少一个八分音符被拉长 50%</td><td><span class="pill warn">用内置方向更稳</span></td></tr>
+      <tr><td><b>配乐情绪偏平</b></td><td>om sound 自己会报 "energy: flat — every stretch within 3 dB"</td><td><span class="pill warn">卡点精确，但无音乐性起伏</span></td></tr>
+      <tr><td><b>无安全沙箱</b></td><td>合成就是页面脚本，能跑任意 JS</td><td><span class="pill no">只适合可控项目</span></td></tr>
+      <tr><td><b>模板体积大</b></td><td>每个模板复制 4MB（gsap + clip + 字体）；字体目录 11MB</td><td><span class="pill ok">可接受</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<hr class="sep">
+
+<!-- ============ LEARN ============ -->
+<section id="learn">
+  <h2 class="sec"><span class="num">11</span>我们可以借鉴的三点</h2>
+  <p class="secdesc">这三条与具体实现无关，是架构层面的判断。</p>
+
+  <div class="note">
+    <div class="t">01 · 渲染 / 静帧 / 预览 共用一条 capture 路径</div>
+    <p>这解决了所有视频框架的通病——<b>预览和成片不一致</b>。我们平台里预览页和最终渲染是两套代码，这是一个可以立刻借鉴的架构约束：<b>让「看到的」和「交出去的」只有一条代码路径。</b></p>
+  </div>
+
+  <div class="note">
+    <div class="t">02 · 评论收件箱是模型无关的 JSONL 协议</div>
+    <p>我们现在用 Agent Key + 审批的思路是对的，但「指着画面改」这个交互（带时间点、元素、源码位置）比纯文本反馈精确得多。而且追加式日志 + 状态折叠的设计，天然解决了「状态和日志对不上」的问题。<b>这个协议可以直接搬到我们的创作台上。</b></p>
+  </div>
+
+  <div class="note">
+    <div class="t">03 · 静态分析在前，采样在后</div>
+    <p>静态层毫秒级拦掉 80% 的错误，只有剩下的才开浏览器。这让「每次改完都检查」变得可承受——<b>我们现在很多检查因为太慢，实际上没人跑。</b>把检查按成本分层，是提高质量下限最便宜的办法。</p>
+  </div>
+
+  <div class="note" style="border-left-color:var(--rose)">
+    <div class="t">一个反面的教训</div>
+    <p><code>om qa</code> 会拿真实爆款的数据做基准，判「运动量低于 0.85 就是幻灯片」。这条逼我把片子从 0.14 改到 0.57——<b>但最后一条始终没过</b>。我的判断是：说明型片子本来就该慢读，硬加运动牺牲可读性。</p>
+    <p><b>这提示了一个通用问题：</b>用数据基准做质检，一定会遇到「基准和意图冲突」的情况。框架应该允许带理由的豁免，而不是只有通过和不通过两态。</p>
+  </div>
+</section>
+
+<footer>
+  huashu-motion 架构拆解　·　代码 v0.3.1（MIT）　·　拆解于 2026-11-01<br>
+  所有数字来自仓库实测：CLI 7,058 行 / runtime 1,300 行 / clip 1,700 行 / studio 785 行 / references 2,033 行
+</footer>
+
+</main>
+</div>
+
+<script>
+  const links = [...document.querySelectorAll('aside nav a')];
+  const targets = links.map(a => ({a, el: document.querySelector(a.getAttribute('href'))})).filter(t => t.el);
+  function sync(){
+    const line = window.scrollY + 150;
+    let cur = targets[0];
+    for (const t of targets) if (t.el.offsetTop <= line) cur = t;
+    links.forEach(l => l.classList.toggle('on', l === cur.a));
+  }
+  let tick = false;
+  window.addEventListener('scroll', () => {
+    if (!tick) { tick = true; requestAnimationFrame(() => { sync(); tick = false; }); }
+  }, {passive:true});
+  window.addEventListener('load', sync);
+  sync();
+</script>
+</body>
+</html>
